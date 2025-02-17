@@ -1,67 +1,47 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>会社A ダッシュボード</title>
-  <link rel="stylesheet" type="text/css" href="style.css">
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-</head>
-<body>
-  <h1>会社A ダッシュボード</h1>
-  <div id="threadsList">
-    <!-- Firestore上の threads 一覧をここに表示 -->
-  </div>
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs } from "firebase/firestore"; 
 
-  <script>
-    // Firebase の設定（各自の設定に置換してください）
-     const firebaseConfig = {
-       apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
-       authDomain: "oata-8c05b.firebaseapp.com",
-       projectId: "oata-8c05b",
-       storageBucket: "oata-8c05b.firebasestorage.app",
-       messagingSenderId: "949261471175",
-       appId: "1:949261471175:web:28482b939262d8e93f1de2",
-       measurementId: "G-02LMR8FTNX"
-     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+const firebaseConfig = {
+  apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
+  authDomain: "oata-8c05b.firebaseapp.com",
+  projectId: "oata-8c05b",
+  storageBucket: "oata-8c05b.firebasestorage.app",
+  messagingSenderId: "949261471175",
+  appId: "1:949261471175:web:28482b939262d8e93f1de2",
+  measurementId: "G-02LMR8FTNX"
+};
 
-    // 1件のスレッドをレンダリングする関数
-    function renderThread(doc) {
-      const data = doc.data();
-      // ドキュメントパス例：companies/{companyId}/threads/{threadId} からIDを取得
-      const pathParts = doc.ref.path.split("/");
-      const companyId = pathParts[1];
-      const threadId = pathParts[3];
+// Firebase を初期化
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-      const card = document.createElement("div");
-      card.className = "project-card";
-      card.innerHTML = `
-        <h3>${data.caseTitle}</h3>
-        <p>出発地: ${data.departure}</p>
-        <p>帰着地: ${data.arrival}</p>
-        <p>更新日時: ${data.last_updated ? data.last_updated.toDate().toLocaleString() : "-"}</p>
-        <a href="answer.html?company=${companyId}&thread=${threadId}">詳細/コメント</a>
-      `;
-      return card;
-    }
+// Firestore からデータを取得して表示
+async function fetchThreads() {
+    const threadsRef = collection(db, "companies", "0001", "threads");
+    const snapshot = await getDocs(threadsRef);
 
-    // collectionGroup クエリで全ての threads を取得して一覧表示
-    db.collectionGroup("threads")
-      .orderBy("last_updated", "desc")
-      .onSnapshot(snapshot => {
-        const container = document.getElementById("threadsList");
-        container.innerHTML = "";
-        if (snapshot.empty) {
-          container.innerHTML = "<p>スレッドがありません。</p>";
-          return;
-        }
-        snapshot.forEach(doc => {
-          container.appendChild(renderThread(doc));
-        });
-      });
-  </script>
-</body>
-</html>
+    let threads = [];
+    snapshot.forEach(doc => {
+        threads.push({ id: doc.id, ...doc.data() });
+    });
+
+    console.log(threads); // デバッグ用
+    displayThreads(threads);
+}
+
+// HTML に表示
+function displayThreads(threads) {
+    const container = document.getElementById("threads-container");
+    container.innerHTML = "";
+
+    threads.forEach(thread => {
+        const div = document.createElement("div");
+        div.innerHTML = `<p><strong>ID:</strong> ${thread.id} <br> 
+                         <strong>Departure:</strong> ${thread.departure} <br> 
+                         <strong>Price:</strong> ${thread.confirmedPrice}円</p>`;
+        container.appendChild(div);
+    });
+}
+
+// 実行
+fetchThreads();
