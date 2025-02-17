@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>会社A ダッシュボード</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    /* クローズ済みカード用にグレーアウト（お好みで調整） */
+    .closed-card {
+      background-color: #f0f0f0;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>会社A ダッシュボード</h1>
+  
+  <h2>オープン案件</h2>
+  <div id="openCases">
+    <!-- オープン状態の案件一覧をここに表示 -->
+  </div>
+  
+  <h2>クローズ済み案件</h2>
+  <div id="closedCases">
+    <!-- クローズ状態の案件一覧をここに表示 -->
+  </div>
+  
+  <script>
+    // Firebase 初期化（各自の設定に置換）
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ステータスをトグルする関数
+    function toggleCaseStatus(companyId, threadId, currentStatus) {
+      const newStatus = !currentStatus;
+      const docRef = db.collection("companies").doc(companyId).collection("threads").doc(threadId);
+      docRef.update({ closed: newStatus })
+        .then(() => {
+          console.log("案件ステータスが更新されました: ", newStatus);
+        })
+        .catch(error => {
+          console.error("ステータス更新エラー:", error);
+        });
+    }
+
+    // 案件1件をレンダリングする関数
+    function renderCase(doc, container) {
+      const data = doc.data();
+      // ドキュメントパス例：companies/{companyId}/threads/{threadId}
+      const pathParts = doc.ref.path.split("/");
+      const companyId = pathParts[1];
+      const threadId = pathParts[3];
+
+      const card = document.createElement("div");
+      card.className = "project-card";
+      // クローズ済みならクラスを追加してグレーアウト表示
+      if (data.closed) {
+        card.classList.add("closed-card");
+      }
+
+      card.innerHTML = `
+        <h3>${data.caseTitle}</h3>
+        <p>出発地: ${data.departure}</p>
+        <p>帰着地: ${data.arrival}</p>
+        <p>更新日時: ${data.last_updated ? data.last_updated.toDate().toLocaleString() : "-"}</p>
+        <a href="answer.html?company=${companyId}&thread=${threadId}">詳細/コメント</a>
+        <br>
+        <button class="toggleStatusBtn">${data.closed ? "オープンにする" : "クローズする"}</button>
+      `;
+      // ステータス切り替えボタンのイベントリスナー
+      card.querySelector(".toggleStatusBtn").addEventListener("click", function() {
+        toggleCaseStatus(companyId, threadId, data.closed);
+      });
+      container.appendChild(card);
+    }
+
+    // オープン案件（closed == false）のリスナー
+    db.collectionGroup("threads")
+      .where("closed", "==", false)
+      .orderBy("last_updated", "desc")
+      .onSnapshot(snapshot => {
+        const openContainer = document.getElementById("openCases");
+        openContainer.innerHTML = "";
+        if (snapshot.empty) {
+          openContainer.innerHTML = "<p>オープン案件はありません。</p>";
+          return;
+        }
+        snapshot.forEach(doc => {
+          renderCase(doc, openContainer);
+        });
+      });
+
+    // クローズ案件（closed == true）のリスナー
+    db.collectionGroup("threads")
+      .where("closed", "==", true)
+      .orderBy("last_updated", "desc")
+      .onSnapshot(snapshot => {
+        const closedContainer = document.getElementById("closedCases");
+        closedContainer.innerHTML = "";
+        if (snapshot.empty) {
+          closedContainer.innerHTML = "<p>クローズ済み案件はありません。</p>";
+          return;
+        }
+        snapshot.forEach(doc => {
+          renderCase(doc, closedContainer);
+        });
+      });
+  </script>
+</body>
+</html>
