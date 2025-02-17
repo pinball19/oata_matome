@@ -72,7 +72,7 @@
                             <td>${data.departure || "-"}</td>
                             <td>${data.departureDate || "-"}</td>
                             <td>${data.estimatedPrice ? Number(data.estimatedPrice).toLocaleString() + "円" : "-"}</td>
-                            <td><a href="case-details.html?company=0001&thread=${doc.id}">詳細を見る</a></td>
+                            <td><a href="/case-details.html?company=0001&thread=${doc.id}">詳細を見る</a></td>
                         `;
 
                         tableBody.appendChild(row);
