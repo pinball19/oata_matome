@@ -1,123 +1,185 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>案件一覧（ログイン付き）</title>
-    <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8">
+  <title>案件一覧（ログイン付き）</title>
+  <link rel="stylesheet" href="./style.css">
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-    <script>
-      // Firebase 設定
-const firebaseConfig = {
-  apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
-  authDomain: "oata-8c05b.firebaseapp.com",
-  projectId: "oata-8c05b",
-  storageBucket: "oata-8c05b.firebasestorage.app",
-  messagingSenderId: "949261471175",
-  appId: "1:949261471175:web:28482b939262d8e93f1de2",
-  measurementId: "G-02LMR8FTNX"
-};
-      firebase.initializeApp(firebaseConfig);
-      const db = firebase.firestore();
+  <style>
+    /* 例：処理済みカードのスタイル（必要に応じて調整してください） */
+    .processed {
+      background-color: #eee;
+    }
+    .card-container {
+      margin-bottom: 20px;
+    }
+    .card {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+  </style>
 
-      // ページ読み込み時
-      window.onload = () => {
-        const loggedInCompany = localStorage.getItem("company_id");
-        if (!loggedInCompany) {
-          // 未ログインならログインフォームを表示
-          document.getElementById("loginArea").style.display = "block";
-          document.getElementById("listArea").style.display = "none";
-        } else {
-          // ログイン済みなので案件一覧を表示
-          document.getElementById("loginArea").style.display = "none";
-          document.getElementById("listArea").style.display = "block";
-          fetchThreads();
+  <script>
+    // Firebase 設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
+      authDomain: "oata-8c05b.firebaseapp.com",
+      projectId: "oata-8c05b",
+      storageBucket: "oata-8c05b.firebasestorage.app",
+      messagingSenderId: "949261471175",
+      appId: "1:949261471175:web:28482b939262d8e93f1de2",
+      measurementId: "G-02LMR8FTNX"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ページ読み込み時
+    window.onload = () => {
+      const loggedInCompany = localStorage.getItem("company_id");
+      if (!loggedInCompany) {
+        // 未ログインならログインフォームを表示
+        document.getElementById("loginArea").style.display = "block";
+        document.getElementById("listArea").style.display = "none";
+      } else {
+        // ログイン済みなので案件一覧を表示
+        document.getElementById("loginArea").style.display = "none";
+        document.getElementById("listArea").style.display = "block";
+        fetchThreads();
+      }
+    };
+
+    // ログイン処理
+    async function login() {
+      const companyID = document.getElementById("companyID").value.trim();
+      const password = document.getElementById("password").value.trim();
+      if (!companyID || !password) {
+        alert("販売店IDとパスワードを入力してください");
+        return;
+      }
+
+      try {
+        const doc = await db.collection("companies").doc(companyID).get();
+        if (!doc.exists) {
+          alert("販売店IDが存在しません");
+          return;
         }
-      };
-
-      // ログイン処理
-      async function login() {
-        const companyID = document.getElementById("companyID").value.trim();
-        const password = document.getElementById("password").value.trim();
-        if (!companyID || !password) {
-          alert("販売店IDとパスワードを入力してください");
+        const data = doc.data();
+        // 本番では平文でなくハッシュ化を推奨
+        if (data.password !== password) {
+          alert("パスワードが間違っています");
           return;
         }
 
-        try {
-          const doc = await db.collection("companies").doc(companyID).get();
-          if (!doc.exists) {
-            alert("販売店IDが存在しません");
-            return;
-          }
-          const data = doc.data();
-          // 本番では平文でなくハッシュ化を推奨
-          if (data.password !== password) {
-            alert("パスワードが間違っています");
-            return;
-          }
-
-          // ログイン成功
-          localStorage.setItem("company_id", companyID);
-          // ログインフォームを隠して案件一覧を表示
-          document.getElementById("loginArea").style.display = "none";
-          document.getElementById("listArea").style.display = "block";
-          fetchThreads();
-        } catch (err) {
-          console.error("ログインエラー:", err);
-          alert("ログイン中にエラーが発生しました");
-        }
+        // ログイン成功
+        localStorage.setItem("company_id", companyID);
+        // ログインフォームを隠して案件一覧を表示
+        document.getElementById("loginArea").style.display = "none";
+        document.getElementById("listArea").style.display = "block";
+        fetchThreads();
+      } catch (err) {
+        console.error("ログインエラー:", err);
+        alert("ログイン中にエラーが発生しました");
       }
+    }
 
-      // 案件一覧を取得
-      async function fetchThreads() {
-        console.log("Fetching all companies...");
-        const container = document.getElementById("cardContainer");
-        container.innerHTML = "";
+    // 案件一覧を取得し、最新更新日時順に並び替えてカードを生成
+    async function fetchThreads() {
+      const mainContainer = document.getElementById("cardContainer");
+      mainContainer.innerHTML = "";
 
-        try {
-          const companiesSnapshot = await db.collection("companies").get();
-          console.log("Number of company docs:", companiesSnapshot.size);
-
-          for (const companyDoc of companiesSnapshot.docs) {
-            console.log("Found companyDoc ID:", companyDoc.id);
-
-            const threadsSnapshot = await companyDoc.ref.collection("threads").get();
-            console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
-
-            threadsSnapshot.forEach(doc => {
-              const data = doc.data();
-              console.log("doc ID:", doc.id, "data:", data);
-
-              // カード生成（最終更新日時も表示）
-              const card = document.createElement("div");
-              card.className = "card";
-              card.innerHTML = `
-                <p>販売店番号: ${companyDoc.id}</p>
-                <p>最終更新: ${data.last_updated ? data.last_updated.toDate().toLocaleString() : "-"}</p>
-                <h3>${data.groupName || "不明"}</h3>
-                <!-- 会社A側の場合、リンク先に role=companyA を付与し、販売店リポジトリの thread.html へ遷移 -->
-                <a href="https://pinball19.github.io/oata/thread.html?company=${companyDoc.id}&thread=${doc.id}&role=companyA">
-                  詳細を見る
-                </a>
-              `;
-              container.appendChild(card);
+      // 配列に全スレッド情報を一旦格納
+      const threads = [];
+      try {
+        const companiesSnapshot = await db.collection("companies").get();
+        for (const companyDoc of companiesSnapshot.docs) {
+          const threadsSnapshot = await companyDoc.ref.collection("threads").get();
+          threadsSnapshot.forEach(doc => {
+            const data = doc.data();
+            threads.push({
+              companyId: companyDoc.id,
+              threadId: doc.id,
+              data: data
             });
-          }
-        } catch (error) {
-          console.error("データ取得エラー:", error);
+          });
         }
-      }
 
-      // ログアウト
-      function logout() {
-        localStorage.removeItem("company_id");
-        window.location.reload();
+        // 最新更新日時で降順にソート
+        threads.sort((a, b) => {
+          const aTime = a.data.last_updated ? a.data.last_updated.toMillis() : 0;
+          const bTime = b.data.last_updated ? b.data.last_updated.toMillis() : 0;
+          return bTime - aTime;
+        });
+
+        // 各スレッドについてカード生成
+        threads.forEach(item => {
+          const card = document.createElement("div");
+          card.className = "card";
+          // 後でソート用にタイムスタンプをdata属性に保存
+          card.dataset.lastUpdated = item.data.last_updated ? item.data.last_updated.toMillis() : 0;
+
+          // チェックボックスの生成
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.className = "process-checkbox";
+          checkbox.addEventListener("change", function(e) {
+            processCard(card, e.target.checked);
+          });
+
+          // カードの内容（チェックボックスは後で先頭に挿入）
+          card.innerHTML = `
+            <p>販売店番号: ${item.companyId}</p>
+            <p>最終更新: ${item.data.last_updated ? item.data.last_updated.toDate().toLocaleString() : "-"}</p>
+            <h3>${item.data.groupName || "不明"}</h3>
+            <a href="https://pinball19.github.io/oata/thread.html?company=${item.companyId}&thread=${item.threadId}&role=companyA">
+              詳細を見る
+            </a>
+          `;
+          // チェックボックスをカードの最初に追加
+          card.insertBefore(checkbox, card.firstChild);
+
+          mainContainer.appendChild(card);
+        });
+      } catch (error) {
+        console.error("データ取得エラー:", error);
       }
-    </script>
+    }
+
+    // チェック状態に応じてカードを移動させる処理
+    function processCard(card, isProcessed) {
+      if (isProcessed) {
+        // チェックが入ったらカードをグレーにして処理済みコンテナへ移動
+        card.classList.add("processed");
+        card.parentNode.removeChild(card);
+        document.getElementById("processedContainer").appendChild(card);
+      } else {
+        // チェックが外れたらグレー解除し、メインコンテナに戻す（並び順再ソート）
+        card.classList.remove("processed");
+        card.parentNode.removeChild(card);
+        document.getElementById("cardContainer").appendChild(card);
+        sortMainContainer();
+      }
+    }
+
+    // メインコンテナ内のカードをlast_updatedの降順でソートする関数
+    function sortMainContainer() {
+      const container = document.getElementById("cardContainer");
+      const cards = Array.from(container.getElementsByClassName("card"));
+      cards.sort((a, b) => parseInt(b.dataset.lastUpdated) - parseInt(a.dataset.lastUpdated));
+      container.innerHTML = "";
+      cards.forEach(card => container.appendChild(card));
+    }
+
+    // ログアウト
+    function logout() {
+      localStorage.removeItem("company_id");
+      window.location.reload();
+    }
+  </script>
 </head>
 <body>
   <!-- ログインフォーム -->
@@ -133,6 +195,10 @@ const firebaseConfig = {
     <button onclick="logout()">ログアウト</button>
     <h1>案件一覧</h1>
     <div id="cardContainer" class="card-container"></div>
+
+    <!-- 処理済みカード表示エリア -->
+    <h2>処理済み</h2>
+    <div id="processedContainer" class="card-container"></div>
   </div>
 </body>
 </html>
