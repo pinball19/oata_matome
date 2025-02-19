@@ -97,7 +97,7 @@ const firebaseConfig = {
               card.className = "card";
               card.innerHTML = `
                 <p>販売店番号: ${companyDoc.id}</p>
-                <p>依頼日: ${data.requestDate || "-"}</p>
+                <p>最新の更新: ${data.last_updated || "-"}</p>
                 <h3>${data.groupName || "不明"}</h3>
                 <!-- 会社A側の場合、リンク先に role=companyA を付与し、販売店リポジトリの thread.html へ遷移 -->
                 <a href="https://pinball19.github.io/oata/thread.html?company=${companyDoc.id}&thread=${doc.id}&role=companyA">
