@@ -48,7 +48,7 @@ const firebaseConfig = {
                         const card = document.createElement("div");
                         card.className = "card";
                         card.innerHTML = `
-                            <h3>${data.caseTitle || "不明"}</h3>
+                            <h3>${data.groupName || "不明"}</h3>
                             <p>出発地: ${data.departure || "-"}</p>
                             <p>出発日: ${data.departureDate || "-"}</p>
                             <p>予定金額: ${data.estimatedPrice ? Number(data.estimatedPrice).toLocaleString() + "円" : "-"}</p>
