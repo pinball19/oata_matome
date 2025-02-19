@@ -92,13 +92,14 @@ const firebaseConfig = {
               const data = doc.data();
               console.log("doc ID:", doc.id, "data:", data);
 
-              // カード生成
+              // カード生成（最終更新日時も表示）
               const card = document.createElement("div");
               card.className = "card";
               card.innerHTML = `
                 <p>販売店番号: ${companyDoc.id}</p>
-                <p>最新の更新: ${data.last_updated || "-"}</p>
+                <p>依頼日: ${data.requestDate || "-"}</p>
                 <h3>${data.groupName || "不明"}</h3>
+                <p>最終更新: ${data.last_updated ? data.last_updated.toDate().toLocaleString() : "-"}</p>
                 <!-- 会社A側の場合、リンク先に role=companyA を付与し、販売店リポジトリの thread.html へ遷移 -->
                 <a href="https://pinball19.github.io/oata/thread.html?company=${companyDoc.id}&thread=${doc.id}&role=companyA">
                   詳細を見る
