@@ -6,109 +6,69 @@
     <link rel="stylesheet" type="text/css" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
     <style>
-        /* スピナー */
-        #spinner {
-            display: none;
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
+        .card {
             border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
+            padding: 16px;
+            width: 250px;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
         }
-        th {
-            background-color: #f2f2f2;
+        .card a {
+            display: block;
+            margin-top: 10px;
+            text-align: center;
+            padding: 8px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
         }
     </style>
-
     <script>
-        // Firebase 設定
-        const firebaseConfig = {
-            apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
-            authDomain: "oata-8c05b.firebaseapp.com",
-            projectId: "oata-8c05b",
-            storageBucket: "oata-8c05b.firebasestorage.app",
-            messagingSenderId: "949261471175",
-            appId: "1:949261471175:web:28482b939262d8e93f1de2",
-            measurementId: "G-02LMR8FTNX"
-        };
+const firebaseConfig = {
+  apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
+  authDomain: "oata-8c05b.firebaseapp.com",
+  projectId: "oata-8c05b",
+  storageBucket: "oata-8c05b.firebasestorage.app",
+  messagingSenderId: "949261471175",
+  appId: "1:949261471175:web:28482b939262d8e93f1de2",
+  measurementId: "G-02LMR8FTNX"
+};
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Firestore から案件一覧を取得
         async function fetchThreads() {
-            document.getElementById("spinner").style.display = "block"; // スピナー表示
-            const tableBody = document.getElementById("threadsBody");
-            tableBody.innerHTML = ""; // 初期化
-
+            const container = document.getElementById("cardContainer");
+            container.innerHTML = "";
             try {
                 const querySnapshot = await db.collection("companies").doc("0001").collection("threads").get();
-
-                if (querySnapshot.empty) {
-                    document.getElementById("message").innerText = "案件がありません。";
-                } else {
-                    querySnapshot.forEach(doc => {
-                        const data = doc.data();
-                        const row = document.createElement("tr");
-
-                        row.innerHTML = `
-                            <td>${data.caseTitle || "不明"}</td>
-                            <td>${data.departure || "-"}</td>
-                            <td>${data.departureDate || "-"}</td>
-                            <td>${data.estimatedPrice ? Number(data.estimatedPrice).toLocaleString() + "円" : "-"}</td>
-                            <td><a href="/case-details.html?company=0001&thread=${doc.id}">詳細を見る</a></td>
-                        `;
-
-                        tableBody.appendChild(row);
-                    });
-                }
+                querySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const card = document.createElement("div");
+                    card.className = "card";
+                    card.innerHTML = `
+                        <h3>${data.caseTitle || "不明"}</h3>
+                        <p>出発地: ${data.departure || "-"}</p>
+                        <p>出発日: ${data.departureDate || "-"}</p>
+                        <p>予定金額: ${data.estimatedPrice ? Number(data.estimatedPrice).toLocaleString() + "円" : "-"}</p>
+                        <a href="case-details.html?company=0001&thread=${doc.id}">詳細を見る</a>
+                    `;
+                    container.appendChild(card);
+                });
             } catch (error) {
                 console.error("データ取得エラー:", error);
-                document.getElementById("message").innerText = "データの取得に失敗しました。";
             }
-
-            document.getElementById("spinner").style.display = "none"; // スピナー非表示
         }
-
-        // ページ読み込み時にデータ取得
         window.onload = fetchThreads;
     </script>
 </head>
 <body>
     <h1>案件一覧</h1>
-
-    <!-- スピナー -->
-    <div id="spinner"></div>
-
-    <p id="message"></p>
-
-    <table>
-        <thead>
-            <tr>
-                <th>案件名</th>
-                <th>出発地</th>
-                <th>出発日</th>
-                <th>予定金額</th>
-                <th>詳細</th>
-            </tr>
-        </thead>
-        <tbody id="threadsBody"></tbody>
-    </table>
+    <div id="cardContainer" class="card-container"></div>
 </body>
 </html>
