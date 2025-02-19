@@ -30,6 +30,7 @@
         }
     </style>
     <script>
+        // Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
   authDomain: "oata-8c05b.firebaseapp.com",
@@ -43,14 +44,22 @@ const firebaseConfig = {
         const db = firebase.firestore();
 
         async function fetchThreads() {
+            console.log("Fetching all companies...");
             const container = document.getElementById("cardContainer");
             container.innerHTML = "";
             try {
                 const companiesSnapshot = await db.collection("companies").get();
+                console.log("Number of company docs:", companiesSnapshot.size);
+
                 for (const companyDoc of companiesSnapshot.docs) {
+                    console.log("Found companyDoc ID:", companyDoc.id);
                     const threadsSnapshot = await companyDoc.ref.collection("threads").get();
+                    console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
+
                     threadsSnapshot.forEach(doc => {
                         const data = doc.data();
+                        console.log("doc ID:", doc.id, "data:", data);
+
                         const card = document.createElement("div");
                         card.className = "card";
                         card.innerHTML = `
@@ -67,6 +76,7 @@ const firebaseConfig = {
                 console.error("データ取得エラー:", error);
             }
         }
+
         window.onload = fetchThreads;
     </script>
 </head>
