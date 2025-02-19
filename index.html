@@ -54,7 +54,7 @@ const firebaseConfig = {
             return;
           }
           const data = doc.data();
-          // ※本番運用ではパスワードの平文保存は非推奨（ハッシュ化が望ましい）
+          // 本番では平文でなくハッシュ化を推奨
           if (data.password !== password) {
             alert("パスワードが間違っています");
             return;
@@ -62,7 +62,7 @@ const firebaseConfig = {
 
           // ログイン成功
           localStorage.setItem("company_id", companyID);
-          // ログインフォームを隠し、案件一覧を表示
+          // ログインフォームを隠して案件一覧を表示
           document.getElementById("loginArea").style.display = "none";
           document.getElementById("listArea").style.display = "block";
           fetchThreads();
@@ -72,14 +72,11 @@ const firebaseConfig = {
         }
       }
 
-      // 案件一覧を取得して表示
+      // 案件一覧を取得
       async function fetchThreads() {
         console.log("Fetching all companies...");
         const container = document.getElementById("cardContainer");
         container.innerHTML = "";
-
-        // ログイン中のユーザーID
-        const loggedInCompany = localStorage.getItem("company_id") || "";
 
         try {
           const companiesSnapshot = await db.collection("companies").get();
@@ -87,6 +84,7 @@ const firebaseConfig = {
 
           for (const companyDoc of companiesSnapshot.docs) {
             console.log("Found companyDoc ID:", companyDoc.id);
+
             const threadsSnapshot = await companyDoc.ref.collection("threads").get();
             console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
 
@@ -101,8 +99,8 @@ const firebaseConfig = {
                 <p>販売店番号: ${companyDoc.id}</p>
                 <p>依頼日: ${data.requestDate || "-"}</p>
                 <h3>${data.groupName || "不明"}</h3>
-                <!-- ログイン中のユーザーを role に付与 -->
-                <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}&role=${loggedInCompany}">
+                <!-- 販売店と同じスレッドページ thread.html に遷移させる -->
+                <a href="thread.html?company=${companyDoc.id}&thread=${doc.id}">
                   詳細を見る
                 </a>
               `;
@@ -124,8 +122,8 @@ const firebaseConfig = {
 <body>
   <!-- ログインフォーム -->
   <div id="loginArea" style="display: none;">
-    <h2>販売店ログイン</h2>
-    <input type="text" id="companyID" placeholder="販売店ID">
+    <h2>会社Aログイン</h2>
+    <input type="text" id="companyID" placeholder="会社AのID（例: companyA）">
     <input type="password" id="password" placeholder="パスワード">
     <button onclick="login()">ログイン</button>
   </div>
