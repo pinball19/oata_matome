@@ -42,10 +42,18 @@
       border-radius: 4px;
     }
 
-    /* 見出し */
-    h1, h2 {
-      margin-top: 0;
+    /* 上部ヘッダー（案件一覧＋ログアウトボタン） */
+    .list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
     }
+    .list-header h1 {
+      margin: 0;
+    }
+
+    /* 見出し */
     .section-header {
       margin-bottom: 15px;
       font-size: 1.2em;
@@ -101,7 +109,7 @@
       background-color: #007bff;
       color: #fff;
       border: none;
-      padding: 10px 15px;
+      padding: 8px 14px;
       border-radius: 5px;
       cursor: pointer;
       transition: background-color 0.3s;
@@ -115,6 +123,13 @@
     }
     a:hover {
       text-decoration: underline;
+    }
+
+    /* 処理済み見出し＋CSVダウンロードボタンの横並び */
+    .processed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
   </style>
 
@@ -131,6 +146,9 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+
+    // 全スレッドデータを保持する配列（CSVダウンロード用）
+    let allThreads = [];
 
     // ページ読み込み時
     window.onload = () => {
@@ -185,36 +203,39 @@
     async function fetchThreads() {
       const mainContainer = document.getElementById("cardContainer");
       mainContainer.innerHTML = "";
+      allThreads = []; // 再取得するたびに初期化
 
       // 配列に全スレッド情報を一旦格納
-      const threads = [];
       try {
         const companiesSnapshot = await db.collection("companies").get();
         for (const companyDoc of companiesSnapshot.docs) {
           const threadsSnapshot = await companyDoc.ref.collection("threads").get();
           threadsSnapshot.forEach(doc => {
             const data = doc.data();
-            threads.push({
+            // Firestoreから取得したドキュメント全体を配列に保存
+            const item = {
               companyId: companyDoc.id,
               threadId: doc.id,
               data: data
-            });
+            };
+            allThreads.push(item);
           });
         }
 
         // 最新更新日時で降順にソート
-        threads.sort((a, b) => {
+        allThreads.sort((a, b) => {
           const aTime = a.data.last_updated ? a.data.last_updated.toMillis() : 0;
           const bTime = b.data.last_updated ? b.data.last_updated.toMillis() : 0;
           return bTime - aTime;
         });
 
         // 各スレッドについてカード生成
-        threads.forEach(item => {
+        allThreads.forEach((item, index) => {
           const card = document.createElement("div");
           card.className = "card";
-          // 後でソート用にタイムスタンプをdata属性に保存
+          // ソート用のタイムスタンプ、全データの参照用indexを付与
           card.dataset.lastUpdated = item.data.last_updated ? item.data.last_updated.toMillis() : 0;
+          card.dataset.index = index; // CSV用に利用
 
           // チェックボックスの生成
           const checkbox = document.createElement("input");
@@ -278,6 +299,92 @@
       cards.forEach(card => container.appendChild(card));
     }
 
+    // CSVダウンロードボタン押下時の処理（処理済み案件のみ対象）
+    function downloadCSV() {
+      // 処理済みコンテナ内のカードを取得
+      const processedCards = document
+        .getElementById("processedContainer")
+        .querySelectorAll(".card");
+      if (processedCards.length === 0) {
+        alert("処理済み案件がありません。");
+        return;
+      }
+
+      // カードから全データを収集してCSV文字列を作成
+      let docArray = [];
+      processedCards.forEach(card => {
+        const idx = parseInt(card.dataset.index, 10);
+        if (!isNaN(idx)) {
+          const item = allThreads[idx];
+          // Firestoreドキュメントの全フィールドをフラットにまとめる
+          const docObj = {
+            companyId: item.companyId,
+            threadId: item.threadId,
+          };
+          // threadsコレクション以下にあるすべてのキーをコピー
+          for (const key in item.data) {
+            docObj[key] = item.data[key];
+          }
+          docArray.push(docObj);
+        }
+      });
+
+      const csvContent = createCSV(docArray);
+
+      // Blobを生成し、ダウンロードリンクから自動ダウンロード
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "processed_threads.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // CSV文字列を生成する関数
+    function createCSV(dataArray) {
+      // 全オブジェクトのキーを網羅的に集める
+      let allKeys = new Set();
+      dataArray.forEach(obj => {
+        Object.keys(obj).forEach(k => allKeys.add(k));
+      });
+      let headers = Array.from(allKeys);
+
+      // CSVのヘッダ行
+      let csvRows = [];
+      csvRows.push(headers.join(","));
+
+      // 各データ行
+      dataArray.forEach(obj => {
+        let row = headers.map(k => {
+          let val = convertValue(obj[k]);
+          // ダブルクォートをエスケープ
+          val = `"${(val || "").toString().replace(/"/g, '""')}"`
+          return val;
+        });
+        csvRows.push(row.join(","));
+      });
+
+      return csvRows.join("\r\n");
+    }
+
+    // Firestore Timestampやオブジェクトを文字列に変換
+    function convertValue(value) {
+      if (value && typeof value === "object") {
+        // Timestamp型をISO文字列に変換
+        if (value instanceof firebase.firestore.Timestamp) {
+          return value.toDate().toISOString();
+        } else {
+          // それ以外のオブジェクトや配列はJSON化
+          return JSON.stringify(value);
+        }
+      } else {
+        // プリミティブ型はそのまま
+        return value !== undefined ? value : "";
+      }
+    }
+
     // ログアウト
     function logout() {
       localStorage.removeItem("company_id");
@@ -297,16 +404,25 @@
 
     <!-- 案件一覧表示 -->
     <div id="listArea" style="display: none;">
-      <button onclick="logout()">ログアウト</button>
-      <h1>案件一覧</h1>
+      <!-- タイトルとログアウトボタンを横並びに配置 -->
+      <div class="list-header">
+        <h1>案件一覧</h1>
+        <button onclick="logout()">ログアウト</button>
+      </div>
       
+      <!-- 未処理案件 -->
       <div>
         <div class="section-header">未処理案件</div>
         <div id="cardContainer" class="card-container"></div>
       </div>
       
+      <!-- 処理済み案件 -->
       <div>
-        <div class="section-header">処理済み案件</div>
+        <!-- 処理済み案件見出し + CSVボタンを横並び -->
+        <div class="section-header processed-header">
+          <span>処理済み案件</span>
+          <button onclick="downloadCSV()">CSVダウンロード</button>
+        </div>
         <div id="processedContainer" class="card-container"></div>
       </div>
     </div>
