@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>案件詳細</title>
+    <link rel="stylesheet" href="./style.css">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase Config (index.html と同じものを貼り付け)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
+            authDomain: "oata-8c05b.firebaseapp.com",
+            projectId: "oata-8c05b",
+            storageBucket: "oata-8c05b.firebasestorage.app",
+            messagingSenderId: "949261471175",
+            appId: "1:949261471175:web:28482b939262d8e93f1de2",
+            measurementId: "G-02LMR8FTNX"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        async function fetchCaseDetails() {
+            // URLクエリパラメータ取得
+            const params = new URLSearchParams(window.location.search);
+            const companyId = params.get('company');
+            const threadId = params.get('thread');
+
+            if (!companyId || !threadId) {
+                console.error("Missing parameters. company or thread ID not found.");
+                document.getElementById("caseDetails").innerHTML = "パラメータが不足しています。";
+                return;
+            }
+
+            try {
+                // Firestoreから案件詳細を取得
+                const docRef = db
+                  .collection("companies")
+                  .doc(companyId)
+                  .collection("threads")
+                  .doc(threadId);
+                const docSnap = await docRef.get();
+
+                if (!docSnap.exists) {
+                    document.getElementById("caseDetails").innerHTML = "該当案件が見つかりません。";
+                    return;
+                }
+
+                // 取得データを画面に表示
+                const data = docSnap.data();
+                const detailHTML = `
+                    <h2>案件詳細</h2>
+                    <p>販売店番号: ${companyId}</p>
+                    <p>団体名: ${data.groupName || "不明"}</p>
+                    <p>依頼日: ${data.requestDate || "-"}</p>
+                    <p>メモ: ${data.remarks || "-"}</p>
+                `;
+                document.getElementById("caseDetails").innerHTML = detailHTML;
+            } catch (error) {
+                console.error("案件詳細の取得に失敗しました", error);
+                document.getElementById("caseDetails").innerHTML = "案件詳細の取得に失敗しました。";
+            }
+        }
+
+        window.onload = fetchCaseDetails;
+    </script>
+</head>
+<body>
+    <h1>案件詳細ページ</h1>
+    <div id="caseDetails">読み込み中…</div>
+</body>
+</html>
