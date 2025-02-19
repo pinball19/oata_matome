@@ -23,23 +23,22 @@ const firebaseConfig = {
       firebase.initializeApp(firebaseConfig);
       const db = firebase.firestore();
 
-      // 1) ページ読み込み時の処理
+      // ページ読み込み時
       window.onload = () => {
-        // もしすでに localStorage 等にログイン情報があれば、そのまま案件一覧を表示
         const loggedInCompany = localStorage.getItem("company_id");
-        if (loggedInCompany) {
+        if (!loggedInCompany) {
+          // 未ログインならログインフォームを表示
+          document.getElementById("loginArea").style.display = "block";
+          document.getElementById("listArea").style.display = "none";
+        } else {
           // ログイン済みなので案件一覧を表示
           document.getElementById("loginArea").style.display = "none";
           document.getElementById("listArea").style.display = "block";
           fetchThreads();
-        } else {
-          // 未ログインならログインフォームを表示
-          document.getElementById("loginArea").style.display = "block";
-          document.getElementById("listArea").style.display = "none";
         }
       };
 
-      // 2) ログイン処理
+      // ログイン処理
       async function login() {
         const companyID = document.getElementById("companyID").value.trim();
         const password = document.getElementById("password").value.trim();
@@ -55,36 +54,32 @@ const firebaseConfig = {
             return;
           }
           const data = doc.data();
-          // 簡易的に平文で照合（本番ではハッシュ推奨）
+          // ※本番運用ではパスワードの平文保存は非推奨（ハッシュ化が望ましい）
           if (data.password !== password) {
             alert("パスワードが間違っています");
             return;
           }
 
-          // ログイン成功：IDをlocalStorageに保存し、案件一覧を表示
+          // ログイン成功
           localStorage.setItem("company_id", companyID);
+          // ログインフォームを隠し、案件一覧を表示
           document.getElementById("loginArea").style.display = "none";
           document.getElementById("listArea").style.display = "block";
           fetchThreads();
-
         } catch (err) {
           console.error("ログインエラー:", err);
           alert("ログイン中にエラーが発生しました");
         }
       }
 
-      // 3) ログアウト処理
-      function logout() {
-        localStorage.removeItem("company_id");
-        // リロードしてログインフォームへ
-        window.location.reload();
-      }
-
-      // 4) 案件一覧の取得・表示
+      // 案件一覧を取得して表示
       async function fetchThreads() {
         console.log("Fetching all companies...");
         const container = document.getElementById("cardContainer");
         container.innerHTML = "";
+
+        // ログイン中のユーザーID
+        const loggedInCompany = localStorage.getItem("company_id") || "";
 
         try {
           const companiesSnapshot = await db.collection("companies").get();
@@ -106,7 +101,10 @@ const firebaseConfig = {
                 <p>販売店番号: ${companyDoc.id}</p>
                 <p>依頼日: ${data.requestDate || "-"}</p>
                 <h3>${data.groupName || "不明"}</h3>
-                <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}">詳細を見る</a>
+                <!-- ログイン中のユーザーを role に付与 -->
+                <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}&role=${loggedInCompany}">
+                  詳細を見る
+                </a>
               `;
               container.appendChild(card);
             });
@@ -114,6 +112,12 @@ const firebaseConfig = {
         } catch (error) {
           console.error("データ取得エラー:", error);
         }
+      }
+
+      // ログアウト
+      function logout() {
+        localStorage.removeItem("company_id");
+        window.location.reload();
       }
     </script>
 </head>
