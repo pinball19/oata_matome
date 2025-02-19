@@ -2,15 +2,18 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>案件詳細</title>
+    <title>案件一覧</title>
+    <!-- style.css に外部化したCSSを読み込む -->
     <link rel="stylesheet" href="./style.css">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
+    <!-- もし他の追加スクリプトが必要ならここに挿入 -->
 
     <script>
-        // Firebase Config (index.html と同じ値を貼り付けてください)
+        // Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
   authDomain: "oata-8c05b.firebaseapp.com",
@@ -23,56 +26,48 @@ const firebaseConfig = {
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        async function fetchCaseDetails() {
-            // URLクエリパラメータから company, thread を取得
-            const params = new URLSearchParams(window.location.search);
-            const companyId = params.get('company');
-            const threadId = params.get('thread');
-
-            if (!companyId || !threadId) {
-                console.error("Missing parameters. company or thread ID not found.");
-                document.getElementById("caseDetails").innerHTML = "パラメータが不足しています。";
-                return;
-            }
-
+        // データ取得処理
+        async function fetchThreads() {
+            console.log("Fetching all companies...");
+            const container = document.getElementById("cardContainer");
+            container.innerHTML = "";
             try {
-                // Firestore から案件詳細を取得
-                const docRef = db
-                  .collection("companies")
-                  .doc(companyId)
-                  .collection("threads")
-                  .doc(threadId);
+                const companiesSnapshot = await db.collection("companies").get();
+                console.log("Number of company docs:", companiesSnapshot.size);
 
-                const docSnap = await docRef.get();
+                for (const companyDoc of companiesSnapshot.docs) {
+                    console.log("Found companyDoc ID:", companyDoc.id);
+                    const threadsSnapshot = await companyDoc.ref.collection("threads").get();
+                    console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
 
-                if (!docSnap.exists) {
-                    document.getElementById("caseDetails").innerHTML = "該当案件が見つかりません。";
-                    return;
+                    threadsSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        console.log("doc ID:", doc.id, "data:", data);
+
+                        // カード生成
+                        // 表示順: 販売店番号, 依頼日, 団体名, 詳細ボタン
+                        const card = document.createElement("div");
+                        card.className = "card";
+                        card.innerHTML = `
+                            <p>販売店番号: ${companyDoc.id}</p>
+                            <p>依頼日: ${data.requestDate || "-"}</p>
+                            <h3>${data.groupName || "不明"}</h3>
+                            <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}">詳細を見る</a>
+                        `;
+                        container.appendChild(card);
+                    });
                 }
-
-                // 取得したデータ
-                const data = docSnap.data();
-
-                // 必要に応じて表示する項目を増やす
-                const detailHTML = `
-                    <h2>案件詳細</h2>
-                    <p>販売店番号: ${companyId}</p>
-                    <p>団体名: ${data.groupName || "不明"}</p>
-                    <p>依頼日: ${data.requestDate || "-"}</p>
-                    <p>メモ: ${data.remarks || "-"}</p>
-                `;
-                document.getElementById("caseDetails").innerHTML = detailHTML;
             } catch (error) {
-                console.error("案件詳細の取得に失敗しました", error);
-                document.getElementById("caseDetails").innerHTML = "案件詳細の取得に失敗しました。";
+                console.error("データ取得エラー:", error);
             }
         }
 
-        window.onload = fetchCaseDetails;
+        // ページ読み込み時
+        window.onload = fetchThreads;
     </script>
 </head>
 <body>
-    <h1>案件詳細ページ</h1>
-    <div id="caseDetails">読み込み中…</div>
+    <h1>案件一覧</h1>
+    <div id="cardContainer" class="card-container"></div>
 </body>
 </html>
