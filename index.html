@@ -2,18 +2,15 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>案件一覧</title>
-    <!-- style.css に外部化したCSSを読み込む -->
+    <title>案件一覧（ログイン付き）</title>
     <link rel="stylesheet" href="./style.css">
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    
-    <!-- もし他の追加スクリプトが必要ならここに挿入 -->
 
     <script>
-        // Firebase Config
+      // Firebase 設定
 const firebaseConfig = {
   apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
   authDomain: "oata-8c05b.firebaseapp.com",
@@ -23,51 +20,117 @@ const firebaseConfig = {
   appId: "1:949261471175:web:28482b939262d8e93f1de2",
   measurementId: "G-02LMR8FTNX"
 };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
 
-        // データ取得処理
-        async function fetchThreads() {
-            console.log("Fetching all companies...");
-            const container = document.getElementById("cardContainer");
-            container.innerHTML = "";
-            try {
-                const companiesSnapshot = await db.collection("companies").get();
-                console.log("Number of company docs:", companiesSnapshot.size);
+      // 1) ページ読み込み時の処理
+      window.onload = () => {
+        // もしすでに localStorage 等にログイン情報があれば、そのまま案件一覧を表示
+        const loggedInCompany = localStorage.getItem("company_id");
+        if (loggedInCompany) {
+          // ログイン済みなので案件一覧を表示
+          document.getElementById("loginArea").style.display = "none";
+          document.getElementById("listArea").style.display = "block";
+          fetchThreads();
+        } else {
+          // 未ログインならログインフォームを表示
+          document.getElementById("loginArea").style.display = "block";
+          document.getElementById("listArea").style.display = "none";
+        }
+      };
 
-                for (const companyDoc of companiesSnapshot.docs) {
-                    console.log("Found companyDoc ID:", companyDoc.id);
-                    const threadsSnapshot = await companyDoc.ref.collection("threads").get();
-                    console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
-
-                    threadsSnapshot.forEach(doc => {
-                        const data = doc.data();
-                        console.log("doc ID:", doc.id, "data:", data);
-
-                        // カード生成
-                        // 表示順: 販売店番号, 依頼日, 団体名, 詳細ボタン
-                        const card = document.createElement("div");
-                        card.className = "card";
-                        card.innerHTML = `
-                            <p>販売店番号: ${companyDoc.id}</p>
-                            <p>依頼日: ${data.requestDate || "-"}</p>
-                            <h3>${data.groupName || "不明"}</h3>
-                            <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}">詳細を見る</a>
-                        `;
-                        container.appendChild(card);
-                    });
-                }
-            } catch (error) {
-                console.error("データ取得エラー:", error);
-            }
+      // 2) ログイン処理
+      async function login() {
+        const companyID = document.getElementById("companyID").value.trim();
+        const password = document.getElementById("password").value.trim();
+        if (!companyID || !password) {
+          alert("販売店IDとパスワードを入力してください");
+          return;
         }
 
-        // ページ読み込み時
-        window.onload = fetchThreads;
+        try {
+          const doc = await db.collection("companies").doc(companyID).get();
+          if (!doc.exists) {
+            alert("販売店IDが存在しません");
+            return;
+          }
+          const data = doc.data();
+          // 簡易的に平文で照合（本番ではハッシュ推奨）
+          if (data.password !== password) {
+            alert("パスワードが間違っています");
+            return;
+          }
+
+          // ログイン成功：IDをlocalStorageに保存し、案件一覧を表示
+          localStorage.setItem("company_id", companyID);
+          document.getElementById("loginArea").style.display = "none";
+          document.getElementById("listArea").style.display = "block";
+          fetchThreads();
+
+        } catch (err) {
+          console.error("ログインエラー:", err);
+          alert("ログイン中にエラーが発生しました");
+        }
+      }
+
+      // 3) ログアウト処理
+      function logout() {
+        localStorage.removeItem("company_id");
+        // リロードしてログインフォームへ
+        window.location.reload();
+      }
+
+      // 4) 案件一覧の取得・表示
+      async function fetchThreads() {
+        console.log("Fetching all companies...");
+        const container = document.getElementById("cardContainer");
+        container.innerHTML = "";
+
+        try {
+          const companiesSnapshot = await db.collection("companies").get();
+          console.log("Number of company docs:", companiesSnapshot.size);
+
+          for (const companyDoc of companiesSnapshot.docs) {
+            console.log("Found companyDoc ID:", companyDoc.id);
+            const threadsSnapshot = await companyDoc.ref.collection("threads").get();
+            console.log("threads count for", companyDoc.id, ":", threadsSnapshot.size);
+
+            threadsSnapshot.forEach(doc => {
+              const data = doc.data();
+              console.log("doc ID:", doc.id, "data:", data);
+
+              // カード生成
+              const card = document.createElement("div");
+              card.className = "card";
+              card.innerHTML = `
+                <p>販売店番号: ${companyDoc.id}</p>
+                <p>依頼日: ${data.requestDate || "-"}</p>
+                <h3>${data.groupName || "不明"}</h3>
+                <a href="case-details.html?company=${companyDoc.id}&thread=${doc.id}">詳細を見る</a>
+              `;
+              container.appendChild(card);
+            });
+          }
+        } catch (error) {
+          console.error("データ取得エラー:", error);
+        }
+      }
     </script>
 </head>
 <body>
+  <!-- ログインフォーム -->
+  <div id="loginArea" style="display: none;">
+    <h2>販売店ログイン</h2>
+    <input type="text" id="companyID" placeholder="販売店ID">
+    <input type="password" id="password" placeholder="パスワード">
+    <button onclick="login()">ログイン</button>
+  </div>
+
+  <!-- 案件一覧表示 -->
+  <div id="listArea" style="display: none;">
+    <button onclick="logout()">ログアウト</button>
     <h1>案件一覧</h1>
     <div id="cardContainer" class="card-container"></div>
+  </div>
 </body>
 </html>
