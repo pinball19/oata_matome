@@ -1,0 +1,49 @@
+/* style.css */
+
+/* Body全体のリセットや、背景色等のベース設定 */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #f8f8f8;
+  font-family: sans-serif;
+}
+
+/* タイトルなど */
+h1 {
+  text-align: center;
+  margin-top: 20px;
+}
+
+/* カード一覧用のコンテナ */
+.card-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 20px;
+}
+
+/* カード */
+.card {
+  border: 1px solid #ddd;
+  padding: 16px;
+  width: 250px;
+  box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+  background-color: #fff;
+  border-radius: 6px;
+}
+
+/* カード内のリンクボタン */
+.card a {
+  display: block;
+  margin-top: 10px;
+  text-align: center;
+  padding: 8px;
+  background-color: #3498db;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.card a:hover {
+  background-color: #1f78b4;
+}
