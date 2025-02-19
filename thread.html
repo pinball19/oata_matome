@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>案件詳細ページ（会社A用）</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase初期化（同じ設定を使用）
+    const firebaseConfig = {
+      // ...
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let globalCompanyId = "";
+    let globalThreadId = "";
+
+    window.onload = () => {
+      // 同じURLパラメータを取得
+      const params = new URLSearchParams(window.location.search);
+      globalCompanyId = params.get("company");  // 例: 0002
+      globalThreadId = params.get("thread");    // 例: xTOHUIUoFyHlmbA8wMHY
+
+      if (!globalCompanyId || !globalThreadId) {
+        alert("パラメータが不足しています。");
+        return;
+      }
+
+      loadThreadData();
+      loadComments();
+    };
+
+    // 案件情報を読み込む
+    async function loadThreadData() {
+      try {
+        const docRef = db.collection("companies")
+                         .doc(globalCompanyId)
+                         .collection("threads")
+                         .doc(globalThreadId);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
+          document.getElementById("threadInfo").innerHTML = "案件が見つかりません。";
+          return;
+        }
+        const data = docSnap.data();
+        document.getElementById("threadInfo").innerHTML = `
+          <h2>案件詳細</h2>
+          <p>販売店番号: ${globalCompanyId}</p>
+          <p>団体名: ${data.groupName || "不明"}</p>
+          <p>出発日: ${data.departureDate || "-"}</p>
+          <!-- ほか販売店と同じ項目を表示 -->
+        `;
+      } catch (err) {
+        console.error("Error:", err);
+      }
+    }
+
+    // コメント一覧を読み込む
+    function loadComments() {
+      db.collection("companies")
+        .doc(globalCompanyId)
+        .collection("threads")
+        .doc(globalThreadId)
+        .collection("comments")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+          const commentsDiv = document.getElementById("commentsSection");
+          commentsDiv.innerHTML = "";
+          snapshot.forEach(doc => {
+            const cData = doc.data();
+            const timeStr = cData.timestamp
+              ? cData.timestamp.toDate().toLocaleString()
+              : "";
+            commentsDiv.innerHTML += `<p><strong>${cData.name}:</strong> ${cData.text} <small>${timeStr}</small></p>`;
+          });
+        });
+    }
+
+    // コメントを投稿
+    async function submitComment() {
+      const newComment = document.getElementById("newComment").value.trim();
+      if (!newComment) {
+        alert("コメントを入力してください。");
+        return;
+      }
+
+      try {
+        await db.collection("companies")
+          .doc(globalCompanyId)
+          .collection("threads")
+          .doc(globalThreadId)
+          .collection("comments")
+          .add({
+            name: "会社A", // ログイン情報で切り替えてもOK
+            text: newComment,
+            timestamp: new Date()
+          });
+        document.getElementById("newComment").value = "";
+      } catch (err) {
+        console.error("コメント投稿失敗:", err);
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="threadInfo">読み込み中...</div>
+
+  <h3>コメント一覧</h3>
+  <div id="commentsSection"></div>
+
+  <h3>新しいコメントを投稿</h3>
+  <textarea id="newComment" placeholder="コメントを入力"></textarea>
+  <button onclick="submitComment()">投稿</button>
+</body>
+</html>
