@@ -3,46 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <title>案件一覧</title>
-    <link rel="stylesheet" type="text/css" href="style.css">
+    <!-- style.css に外部化したCSSを読み込む -->
+    <link rel="stylesheet" href="./style.css">
+
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <style>
-        .card-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-        .card {
-            border: 1px solid #ddd;
-            padding: 16px;
-            width: 250px;
-            box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
-        }
-        .card a {
-            display: block;
-            margin-top: 10px;
-            text-align: center;
-            padding: 8px;
-            background-color: #3498db;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-        }
-    </style>
+    
+    <!-- もし他の追加スクリプトが必要ならここに挿入 -->
+
     <script>
         // Firebase Config
-const firebaseConfig = {
-  apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
-  authDomain: "oata-8c05b.firebaseapp.com",
-  projectId: "oata-8c05b",
-  storageBucket: "oata-8c05b.firebasestorage.app",
-  messagingSenderId: "949261471175",
-  appId: "1:949261471175:web:28482b939262d8e93f1de2",
-  measurementId: "G-02LMR8FTNX"
-};
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
+        // データ取得処理
         async function fetchThreads() {
             console.log("Fetching all companies...");
             const container = document.getElementById("cardContainer");
@@ -60,6 +43,7 @@ const firebaseConfig = {
                         const data = doc.data();
                         console.log("doc ID:", doc.id, "data:", data);
 
+                        // カード生成
                         const card = document.createElement("div");
                         card.className = "card";
                         card.innerHTML = `
@@ -77,6 +61,7 @@ const firebaseConfig = {
             }
         }
 
+        // ページ読み込み時
         window.onload = fetchThreads;
     </script>
 </head>
