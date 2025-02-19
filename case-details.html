@@ -1,75 +1,139 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>案件詳細</title>
-    <link rel="stylesheet" href="./style.css">
+  <meta charset="UTF-8">
+  <title>案件詳細</title>
+  <link rel="stylesheet" href="./style.css">
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-    <script>
-        // Firebase Config (index.html と同じものを貼り付け)
-        const firebaseConfig = {
-            apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
-            authDomain: "oata-8c05b.firebaseapp.com",
-            projectId: "oata-8c05b",
-            storageBucket: "oata-8c05b.firebasestorage.app",
-            messagingSenderId: "949261471175",
-            appId: "1:949261471175:web:28482b939262d8e93f1de2",
-            measurementId: "G-02LMR8FTNX"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+  <script>
+    // Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyDPLwpz4GcsNrmn6HNKLPmQWokZgKT4Cis",
+  authDomain: "oata-8c05b.firebaseapp.com",
+  projectId: "oata-8c05b",
+  storageBucket: "oata-8c05b.firebasestorage.app",
+  messagingSenderId: "949261471175",
+  appId: "1:949261471175:web:28482b939262d8e93f1de2",
+  measurementId: "G-02LMR8FTNX"
+};
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-        async function fetchCaseDetails() {
-            // URLクエリパラメータ取得
-            const params = new URLSearchParams(window.location.search);
-            const companyId = params.get('company');
-            const threadId = params.get('thread');
+    // 1) ページ読み込み時、クエリパラメータを取得
+    let globalCompanyId = "";
+    let globalThreadId = "";
+    let userRole = "";
 
-            if (!companyId || !threadId) {
-                console.error("Missing parameters. company or thread ID not found.");
-                document.getElementById("caseDetails").innerHTML = "パラメータが不足しています。";
-                return;
-            }
+    window.onload = () => {
+      const params = new URLSearchParams(window.location.search);
+      globalCompanyId = params.get('company');
+      globalThreadId = params.get('thread');
+      userRole = params.get('role') || "";
 
-            try {
-                // Firestoreから案件詳細を取得
-                const docRef = db
-                  .collection("companies")
-                  .doc(companyId)
-                  .collection("threads")
-                  .doc(threadId);
-                const docSnap = await docRef.get();
+      if (!globalCompanyId || !globalThreadId) {
+        alert("パラメータが不足しています。");
+        return;
+      }
 
-                if (!docSnap.exists) {
-                    document.getElementById("caseDetails").innerHTML = "該当案件が見つかりません。";
-                    return;
-                }
+      // 案件詳細を読み込む
+      fetchCaseDetails(globalCompanyId, globalThreadId);
+      // コメント一覧を読み込む
+      loadComments(globalCompanyId, globalThreadId);
+    };
 
-                // 取得データを画面に表示
-                const data = docSnap.data();
-                const detailHTML = `
-                    <h2>案件詳細</h2>
-                    <p>販売店番号: ${companyId}</p>
-                    <p>団体名: ${data.groupName || "不明"}</p>
-                    <p>依頼日: ${data.requestDate || "-"}</p>
-                    <p>メモ: ${data.remarks || "-"}</p>
-                `;
-                document.getElementById("caseDetails").innerHTML = detailHTML;
-            } catch (error) {
-                console.error("案件詳細の取得に失敗しました", error);
-                document.getElementById("caseDetails").innerHTML = "案件詳細の取得に失敗しました。";
-            }
+    // 2) 案件詳細を読み込んで表示
+    async function fetchCaseDetails(companyId, threadId) {
+      try {
+        const docRef = db.collection("companies")
+                         .doc(companyId)
+                         .collection("threads")
+                         .doc(threadId);
+        const docSnap = await docRef.get();
+
+        if (!docSnap.exists) {
+          document.getElementById("caseDetails").innerHTML = "該当案件が見つかりません。";
+          return;
         }
 
-        window.onload = fetchCaseDetails;
-    </script>
+        const data = docSnap.data();
+        // 必要に応じて表示
+        const detailHTML = `
+          <h2>案件詳細</h2>
+          <p>販売店番号: ${companyId}</p>
+          <p>団体名: ${data.groupName || "不明"}</p>
+          <p>依頼日: ${data.requestDate || "-"}</p>
+          <p>メモ: ${data.remarks || "-"}</p>
+        `;
+        document.getElementById("caseDetails").innerHTML = detailHTML;
+
+      } catch (error) {
+        console.error("案件詳細の取得エラー:", error);
+        document.getElementById("caseDetails").innerHTML = "案件詳細の取得に失敗しました。";
+      }
+    }
+
+    // 3) コメントをサブコレクションから取得
+    function loadComments(companyId, threadId) {
+      db.collection("companies").doc(companyId)
+        .collection("threads").doc(threadId)
+        .collection("comments")
+        .orderBy("timestamp", "asc")
+        .onSnapshot(snapshot => {
+          const commentsDiv = document.getElementById("commentsList");
+          commentsDiv.innerHTML = "";
+          snapshot.forEach(doc => {
+            const cData = doc.data();
+            const timeStr = cData.timestamp ? cData.timestamp.toDate().toLocaleString() : "";
+            commentsDiv.innerHTML += `<p>${cData.name}: ${cData.text} (${timeStr})</p>`;
+          });
+        });
+    }
+
+    // 4) コメント投稿
+    async function submitComment() {
+      const newComment = document.getElementById("newComment").value.trim();
+      if (!newComment) {
+        alert("コメントを入力してください。");
+        return;
+      }
+
+      // userRole が companyA なら「会社A」、そうでなければ「販売店」など区別
+      let displayName = "販売店担当者";
+      if (userRole === "companyA") {
+        displayName = "会社A";
+      }
+
+      try {
+        await db.collection("companies").doc(globalCompanyId)
+                 .collection("threads").doc(globalThreadId)
+                 .collection("comments")
+                 .add({
+                    name: displayName,
+                    text: newComment,
+                    timestamp: new Date()
+                 });
+        document.getElementById("newComment").value = "";
+        alert("コメントを投稿しました。");
+      } catch (error) {
+        console.error("コメント投稿エラー:", error);
+        alert("コメントの投稿に失敗しました。");
+      }
+    }
+  </script>
 </head>
 <body>
-    <h1>案件詳細ページ</h1>
-    <div id="caseDetails">読み込み中…</div>
+  <h1>案件詳細ページ</h1>
+  <div id="caseDetails">読み込み中...</div>
+
+  <h3>コメント一覧</h3>
+  <div id="commentsList"></div>
+
+  <h3>新しいコメントを投稿</h3>
+  <textarea id="newComment" placeholder="コメントを入力"></textarea><br>
+  <button onclick="submitComment()">コメントを投稿</button>
 </body>
 </html>
